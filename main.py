@@ -126,7 +126,7 @@ class Gps(App):
         self.count=0
         self.app_config={}
         self.reached=False
-        self.lastDist=0.0
+        self.lastDist=0
 
         app_config_path = path.join(self.config_dir, self.app_config_file)
         # open the file in write mode (may need to update the geoCodes)
@@ -149,8 +149,8 @@ class Gps(App):
             self.client.error("Failed")
 
         # At startup if only home address is configured get the geoCodes
-        if self.app_config["home"]["address"] is not None and \
-                self.app_config["home"]["lat"] is None or self.app_config["home"]["lon"] is None:
+        if self.app_config["home"].get("address") is not None and \
+                (self.app_config["home"].get("lat") is None or self.app_config["home"].get("lon") is None):
             geoCodes = self.getGeoCodes(self.app_config["home"]["address"])
             self.app_config["home"]["lat"]=geoCodes["lat"]
             self.app_config["home"]["lon"]=geoCodes["lng"]
@@ -167,33 +167,47 @@ class Gps(App):
     def remote_configure(self, client, params, user_data, request):
         isRecipientChanged = False
         isHomeLocationChanged = False
-        if params["recipient"] is not None:
+        isGoogleAccessKeyChanged = False
+        recipient = params.get("recipient_number", None)
+        address = params.get("home_address", None)
+        lat = params.get("latitude", None)
+        lon = params.get("longitude", None)
+        google_access_key = params.get("google_access_key", None)
+        if google_access_key is not None:
+            isGoogleAccessKeyChanged = True
+            self.app_config["accessKey"] = google_access_key
+        if recipient is not None:
             isRecipientChanged = True
-            self.app_config["recipient"]=params["recipient"]
-        if params["address"] is None:
-            if params["lat"] is not None:
-                isHomeLocationChanged = True
-                self.app_config["home"]["lat"]=params["lat"]
-            if params["lon"] is not None:
-                isHomeLocationChanged = True
-                self.app_config["home"]["lon"]=params["lon"]
-        else:
-            geoCodes = self.getGeoCodes(params["address"])
-            self.app_config["home"]["address"]=params["address"]
+            self.app_config["recipient"]=recipient
+        if address is not None:
+            geoCodes = self.getGeoCodes(address)
+            self.app_config["home"]["address"]=address
             self.app_config["home"]["lat"]=geoCodes["lat"]
             self.app_config["home"]["lon"]=geoCodes["lng"]
             isHomeLocationChanged = True
+        else:
+            if lat is not None:
+                isHomeLocationChanged = True
+                try:
+                    self.app_config["home"]["lat"]=float(lat)
+                except ValueError:
+                    return (iot.STATUS_FAILURE, json.dumps(self.app_config))
+            if lon is not None:
+                isHomeLocationChanged = True
+                try:
+                    self.app_config["home"]["lon"]=float(lon)
+                except ValueError:
+                    return (iot.STATUS_FAILURE, json.dumps(self.app_config))
         if isHomeLocationChanged == True:
            self.location_home = "{}\nlat:{},lon:{}".format(self.app_config["home"]["address"],
                                                             self.app_config["home"]["lat"],
                                                             self.app_config["home"]["lon"])
-        if isRecipientChanged == True or isHomeLocationChanged == True:
+        if isRecipientChanged or isHomeLocationChanged or isGoogleAccessKeyChanged:
             app_config_path = path.join(self.config_dir, self.app_config_file)
             app_config_file_handle = open(app_config_path, "w")
             json.dump(self.app_config, app_config_file_handle)
             self.location_status = "UNKNOWN"
-            self.root_widget.do_layout()
-        return (iot.STATUS_SUCCESS, "")
+        return (iot.STATUS_SUCCESS, json.dumps(self.app_config))
 
     def build(self):
         self.init_device_cloud()
@@ -205,23 +219,32 @@ class Gps(App):
         self.root_widget = Builder.load_string(kv)
         return self.root_widget
 
+    @mainthread
     def start(self, minTime, minDistance):
         gps.start(minTime, minDistance)
         self.gps_status = "Starting location service..."
 
+    @mainthread
     def stop(self):
         gps.stop()
         self.gps_status = "Click start for location updates"
 
     def remote_start(self, client, params, user_data, request): # minTime, minDistance):
-        gps.start(params["minTime"], params["minDistance"])
+        try:
+            minTime = int(params.get("mintime", '2000'))
+            minDistance = int(params.get("mindistance", '5'))
+            self.start(minTime, minDistance)
+        except ValueError:
+            return (iot.STATUS_FAILURE, "params:"+params)
+        return (iot.STATUS_SUCCESS, "Started")
 
     def remote_stop(self, client, params, user_data, request):
-        gps.stop()
+        self.stop()
+        return (iot.STATUS_SUCCESS, "Stopped")
 
     def getGeoCodes(self, address):
         url = 'https://maps.googleapis.com/maps/api/geocode/json'
-        params = {'sensor': 'false', 'address': address, 'key': self.app_config["appKey"]}
+        params = {'sensor': 'false', 'address': address, 'key': self.app_config["accessKey"]}
         r = requests.get(url, params=params)
         results = r.json()['results']
         status = r.json()['status']
@@ -255,13 +278,13 @@ class Gps(App):
     def checkDistance(self, newLat, newLon):
         lat1 = self.app_config["home"]["lat"]
         lon1 = self.app_config["home"]["lon"]
-        lat2 = round(newLat, 6)
-        lon2 = round(newLon, 6) 
+        lat2 = newLat
+        lon2 = newLon
         # Using Haversine formula
         p = 0.017453292519943295     #Pi/180
         a = 0.5 - cos((lat2 - lat1) * p)/2 + cos(lat1 * p) * cos(lat2 * p) * (1 - cos((lon2 - lon1) * p)) / 2
         dist = 12742000 * asin(sqrt(a)) #2*R*asin...
-        self.distance = '{}'.format(round(dist, 2))
+        self.distance = '{}'.format(round(dist))
         self.location_updates = '{}'.format(self.count)
         if dist < 15: # home when closer than 10m to the marked point
             if self.location_status != "HOME":
@@ -289,12 +312,13 @@ class Gps(App):
         # notify distance remaining if moved more than 5m
         if abs(self.lastDist - dist) > 5:
             self.lastDist = dist
-            self.client.telemetry_publish('distance', round(dist, 2))
+            self.client.telemetry_publish('distance', dist)
         return False
 
     @mainthread
     def on_status(self, stype, status):
         self.gps_status = 'type={}{}'.format(stype, status)
+        self.root_widget.do_layout()
 
     def on_pause(self):
         gps.stop()
