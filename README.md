@@ -1,5 +1,6 @@
 # trackerapp
-IoT Tracker App (uses Kivy, PythonForAndroid, Device Cloud)
+<img src="/imgs/logo.png" style="border: solid green 2px;" width="40"> IoT Tracker App (uses Kivy, PythonForAndroid, Device Cloud) 
+
 
 ## Getting Started
 App tracks the mobile device (typically an IoT device connected to cloud services). The app is pre-configured with the following:
@@ -22,8 +23,25 @@ The config files required by the App:
 
 Note: App uses Python3.6 and needs some modifications to the Kivy VM from buildozer team to compile. One of the issues is to get SSL working with Crystax NDK - thanks to the P4A team for fixing it. However, at this time the fix is not available in the P4A master.
 
-## Demos
-![Application starts up](/demo/app_start.png "Application starts up")
-![Device approaching or leaving home](/demo/app_start.png "Device approaching or leaving home")
-![Device at home](/demo/app_start.png "Device at home")
-![Device is away](/demo/app_start.png "Device is away")
+## Screenshots
+<p>
+<figure>
+<figcaption><b>Application starts up:</b></figcaption>
+<img src="/imgs/app_start.png" title="Application starts up" width="200">
+</figure>
+<br>
+<figure>
+<figcaption><b>Device at home:</b></figcaption>
+<img src="/imgs/device_at_home.png" title="Device at home" width="200">
+</figure>
+<br>
+<figure>
+<figcaption><b>Device is away:</b></figcaption>
+<img src="/imgs/device_is_away.png" title="Device is away" width="200">
+</figure>
+<br>
+<figure>
+<figcaption><b>Device is approaching or leaving the home:</b></figcaption>
+<img src="/imgs/device_approaching_or_leaving_home.png" title="Device approaching or leaving home" width="200">
+</figure>
+</p>
