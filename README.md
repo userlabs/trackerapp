@@ -1,6 +1,21 @@
 # trackerapp
 <img src="/imgs/logo.png" style="border: solid green 2px;" width="40"> IoT Tracker App (uses Kivy, PythonForAndroid, Device Cloud) 
 
+## Features
+For Local device (app) user:
+1. Allow the user to start/ stop the tracking.
+2. Geocode the home address to obtain coordinates from GoogleMap APIs.
+3. Send notifications to cloud for device location (HOME, AWAY, MEASURING).
+4. Get the GPS location and calculate the remaining distance from home address.
+5. Send periodic notifications to cloud to track the movement.
+
+For Remote cloud user:
+1. Allow a remote user to start/ stop the tracking.
+2. Configure the recipient phone number to send an SMS notification of tracking status.
+3. Configure the home civic address or latitude/ longitude to track the device location.
+4. Configure the access key for external services. e.g. Google Map service.
+5. Configure the GPS settings on the device - interval, distance resolution.
+
 
 ## Getting Started
 App tracks the mobile device (typically an IoT device connected to cloud services). The app is pre-configured with the following:
